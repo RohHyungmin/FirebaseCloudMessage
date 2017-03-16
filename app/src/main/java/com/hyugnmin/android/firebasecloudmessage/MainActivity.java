@@ -1,5 +1,6 @@
 package com.hyugnmin.android.firebasecloudmessage;
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -20,6 +21,11 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,10 +70,66 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void sendNotification(View view){
+        final String sender = editId.getText().toString();
+        final String msg = editMsg.getText().toString();
+        final String token = textToken.getText().toString();
+        if("".equals(msg)){ // 입력값이 있으면 노티를 날려준다
+            Toast.makeText(this, "Input message", Toast.LENGTH_SHORT).show();
 
-        String msg = editMsg.getText().toString();
-        if(!"".equals(msg)){ // 입력값이 있으면 노티를 날려준다
+        }else if ("".equals(token)) {
+            Toast.makeText(this, "Select receive person", Toast.LENGTH_SHORT).show();
 
+        } else {
+
+            new AsyncTask<Void, Void, String>() {
+                @Override
+                protected String doInBackground(Void... params) {
+                    String result = "";
+
+// 1. 내 서버정보 세팅
+                    String server_url = "http://192.168.1.166:8080/index.jsp";
+
+//2. 전송할 POST 메시지 세팅
+                    String post_data = "to_token=" + token + "&msg=" + msg + "&sender=" + sender;
+
+// 3.2 HttpUrlConnection 을 사용해서 내 서버로 메시지를 전송한다
+//     a.서버연결
+                    try {
+                        URL url = new URL(server_url);
+                        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+//     b.header 설정
+                        con.setRequestMethod("POST");
+//     c.POST데이터(body) 전송
+                        con.setDoOutput(true);
+                        OutputStream os = con.getOutputStream();
+                        os.write(post_data.getBytes());
+                        os.flush();
+                        os.close();
+//     d.전송후 결과처리
+                        int responseCode = con.getResponseCode();
+                        if (responseCode == HttpURLConnection.HTTP_OK) { // code 200
+                            // 결과처리후 내 서버측에서 발송한 결과메시지를 꺼낸다.
+                            BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                            String dataLine = "";
+                            // 메시지를 한줄씩 읽어서 result 변수에 담아두고
+                            while ((dataLine = br.readLine()) != null) {
+                                result = result + dataLine;
+                            }
+                            br.close();
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    return result;
+                }
+
+                @Override
+                protected void onPostExecute(String result) {
+                    super.onPostExecute(result);
+                    //결과처리된 메시지를 화면에 보여준다
+                    Toast.makeText(MainActivity.this, result, Toast.LENGTH_SHORT).show();
+                }
+            }.execute();
         }
     }
 
